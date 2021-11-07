@@ -8,12 +8,9 @@ import (
 func main() {
 	var maps [][]*coord
 	var maps2 [][]*coord
-	daggerTime := 0
+	paramBool := true
 	for true {
 		// fmt.Fprintf(os.Stderr, fmt.Sprintf("daggerTime = %v \n", daggerTime))
-		if daggerTime != 0 {
-			daggerTime--
-		}
 		var w, h, playerID, tick int
 		fmt.Scan(&w, &h, &playerID, &tick)
 		//init map
@@ -31,24 +28,16 @@ func main() {
 				if c == 'd' {
 					dagger++
 				}
-				if len(maps) < h {
+				if len(maps) < h { //add new cord
 					var cord coord
-					cord.name = c
-					cord.x = i
-					cord.y = j
+					cord.make(c, i, j)
 					var cop coord
 					cop = cord
 					line = append(line, &cord)
 					line2 = append(line2, &cop)
-				} else {
-					maps[i][j].name = c
-					maps[i][j].touch = false
-					maps[i][j].depth = 0
-					maps[i][j].parent = nil
-					maps2[i][j].name = c
-					maps2[i][j].touch = false
-					maps2[i][j].depth = 0
-					maps2[i][j].parent = nil
+				} else { // modification old map
+					maps[i][j].modification(c)
+					maps2[i][j].modification(c)
 				}
 			}
 			if len(maps) < h {
@@ -61,6 +50,7 @@ func main() {
 		// add neighbors
 		if addNeig {
 			maps = addneighbors(maps, w, h)
+			maps2 = addneighbors(maps2, w, h)
 		}
 		// number of entities
 		var n int
@@ -68,64 +58,64 @@ func main() {
 
 		// read entities
 		player := user{}
+		mobs := []user{}
 		for i := 0; i < n; i++ {
 			var entType string
 			var pID, x, y, param1, param2 int
 			fmt.Scan(&entType, &pID, &x, &y, &param1, &param2)
-			if entType != "p" {
-				maps[y][x].name = 'm'
-				if daggerTime == 0 {
-					maps = monsterAgreZone(maps, x, y, 2)
-					maps2 = monsterAgreZone(maps2, x, y, 1)
-				}
-				continue
-			}
-			player.name = entType
-			player.pID = pID
-			player.x = x
-			player.y = y
-			player.param1 = param1
-			player.param2 = param2
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("entType = %v pID %v x %v y %v param1 %v param2 %v \n", entType, pID, x, y, param1, param2))
+			if playerID == pID {
+				paramBool = param1 == 0
 
+				player.addParam(entType, pID, x, y, param1, param2)
+			}
+			if entType == "m" {
+				maps[y][x].name = 'm'
+				maps2[0][0].name = 'q'
+				g := user{}
+				g.addParam(entType, pID, x, y, param1, param2)
+				mobs = append(mobs, g)
+			}
+
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("entType = %v pID %v x %v y %v param1 %v param2 %v \n", entType, pID, x, y, param1, param2))
 		}
 
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("player.x = %v, player.y = %v \n", player.x, player.y))
 
+		//add mobs agre zone
+
+		for _, m := range mobs {
+			if paramBool {
+				maps = monsterAgreZone(maps, m.x, m.y, 3)
+				// maps2 = monsterAgreZone(maps2, m.x, m.y, 1)
+
+			}
+		}
+
 		//find path
 
 		var path *coord
-		if dagger == 0 || daggerTime != 0 {
+		if dagger == 0 && player.param1 == 0 {
 			path = bfs(maps, player.x, player.y, '#')
+			fmt.Fprintf(os.Stderr, "#\n")
 		} else {
-			path = bfs(maps, player.x, player.y, 'd')
-			if path != nil {
-				if path.parent == maps[player.y][player.x] {
-					daggerTime = 15
-				}
+			if player.param1 != 0 && len(mobs) != 0 {
+				path = bfs(maps, player.x, player.y, 'm')
+				fmt.Fprintf(os.Stderr, "m\n")
+			} else if len(mobs) == 0 {
+				path = bfs(maps2, player.x, player.y, '#')
+				fmt.Fprintf(os.Stderr, "#\n")
+			} else {
+				path = bfs(maps, player.x, player.y, 'd')
+				fmt.Fprintf(os.Stderr, "d\n")
 			}
+
 		}
 
 		if path == nil {
 			fmt.Fprintf(os.Stderr, "BFS nil pointer\n")
-			// m := false
-			// p := maps[player.y][player.x]
-			// k := p
-			// for j := 0; j <= len(p.neighbors); j++ {
-			// for i := 0; i < len(p.neighbors); i++ {
-			// 	if p.neighbors[i].name == 'm' {
-			// 		// m = true
-			// 		continue
-			// 	}
-			// 	path = p.neighbors[i]
-			// 	path.parent = p
-			// }
-			// 	if j < len(k.neighbors) {
-			// 		p = k.neighbors[j]
-			// 	}
-			// }
 
-			path = bfs(maps2, player.x, player.y, '#')
+			path = bfs(maps2, player.x, player.y, 'q')
+			fmt.Fprintf(os.Stderr, "q\n")
 
 			if path == nil {
 				fmt.Println("stay")
@@ -142,38 +132,11 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("finalx = %v, finaly = %v \n", finalx, finaly))
 		// this will choose one of random actions
-
-		if finalx == 1 {
-			fmt.Println("up")
-			fmt.Fprintf(os.Stderr, "up\n")
-			continue
-		}
-		if finalx == -1 {
-			fmt.Println("down")
-			fmt.Fprintf(os.Stderr, "down\n")
-
-			continue
-		}
-		if finaly == -1 {
-			fmt.Println("right")
-			fmt.Fprintf(os.Stderr, "right\n")
-
-			continue
-		}
-		if finaly == 1 {
-			fmt.Println("left")
-			fmt.Fprintf(os.Stderr, "left\n")
-
-			continue
-		}
-		fmt.Println("stay")
-		fmt.Fprintf(os.Stderr, "stay\n")
-
+		PrintResult(finalx, finaly)
 	}
 }
 
 func bfs(maps [][]*coord, x, y int, triger rune) *coord {
-	// var close []*coord
 	var open []*coord
 	open = append(open, maps[y][x])
 	for len(open) != 0 {
@@ -182,8 +145,15 @@ func bfs(maps [][]*coord, x, y int, triger rune) *coord {
 		if now.touch && len(open) != 0 {
 			continue
 		}
+		if now.name == triger {
+			return now
+		}
 		for _, i := range now.neighbors {
 
+			if i.name == triger {
+				i.parent = now
+				return i
+			}
 			if i.name == 'm' {
 				continue
 			}
@@ -191,10 +161,6 @@ func bfs(maps [][]*coord, x, y int, triger rune) *coord {
 				continue
 			}
 			i.parent = now
-
-			if i.name == triger {
-				return i
-			}
 			i.depth = now.depth + 1
 			open = append(open, i)
 		}
@@ -206,19 +172,43 @@ func bfs(maps [][]*coord, x, y int, triger rune) *coord {
 func monsterAgreZone(maps [][]*coord, x, y, aur int) [][]*coord {
 	for i := -1 * aur; i <= aur; i++ {
 		for j := -1 * aur; j <= aur; j++ {
-			if (i*i == 4 && j != 0) || (j*j == 4 && i != 0) {
-				continue
-			}
+			// 			if (i*i == 4 && j != 0) || (j*j == 4 && i != 0) {
+			// 				continue
+			// 			}
 			xn := x + i
 			yn := y + j
 			if xn >= 0 && xn < len(maps[0]) && yn >= 0 && yn < len(maps) {
 				maps[yn][xn].touch = true
 				maps[yn][xn].coin = 100
-
 			}
 		}
 	}
 	return maps
+}
+
+func PrintResult(finalx, finaly int) {
+	if finalx == 1 {
+		fmt.Println("up")
+		fmt.Fprintf(os.Stderr, "up\n")
+		return
+	}
+	if finalx == -1 {
+		fmt.Println("down")
+		fmt.Fprintf(os.Stderr, "down\n")
+		return
+	}
+	if finaly == -1 {
+		fmt.Println("right")
+		fmt.Fprintf(os.Stderr, "right\n")
+		return
+	}
+	if finaly == 1 {
+		fmt.Println("left")
+		fmt.Fprintf(os.Stderr, "left\n")
+		return
+	}
+	fmt.Println("stay")
+	fmt.Fprintf(os.Stderr, "stay\n")
 }
 
 func addneighbors(maps [][]*coord, w, h int) [][]*coord {
@@ -279,6 +269,19 @@ type coord struct {
 	neighbors []*coord
 }
 
+func (self *coord) make(c rune, x, y int) {
+	self.name = c
+	self.x = x
+	self.y = y
+}
+
+func (self *coord) modification(c rune) {
+	self.name = c
+	self.touch = false
+	self.depth = 0
+	self.parent = nil
+}
+
 type user struct {
 	name   string
 	pID    int
@@ -286,4 +289,13 @@ type user struct {
 	y      int
 	param1 int
 	param2 int
+}
+
+func (self *user) addParam(entType string, pID, x, y, param1, param2 int) {
+	self.name = entType
+	self.pID = pID
+	self.x = x
+	self.y = y
+	self.param1 = param1
+	self.param2 = param2
 }
