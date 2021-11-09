@@ -54,7 +54,7 @@ func main() {
 
 		for _, m := range mobs {
 			if paramBool {
-				Maps.maps = monsterAgreZone(Maps.maps, m.x, m.y, 2)
+				Maps.maps = monsterAgreZone(Maps.maps, m.x, m.y, 3)
 				Maps.maps2 = monsterAgreZone(Maps.maps2, m.x, m.y, 1)
 
 			}
@@ -63,28 +63,19 @@ func main() {
 		//find path
 
 		var path *coord
-		if Maps.dagger == 0 && player.param1 == 0 {
-			path = bfs(Maps.maps, player.x, player.y, '#')
-			fmt.Fprintf(os.Stderr, "#\n")
-		} else {
-			if player.param1 != 0 && len(mobs) != 0 {
-				path = bfs(Maps.maps, player.x, player.y, 'm')
-				fmt.Fprintf(os.Stderr, "m\n")
-			} else if len(mobs) == 0 {
-				path = bfs(Maps.maps2, player.x, player.y, '#')
-				fmt.Fprintf(os.Stderr, "#\n")
-			} else {
-				path = bfs(Maps.maps, player.x, player.y, 'd')
-				fmt.Fprintf(os.Stderr, "d\n")
-			}
-
-		}
+		// var multiPath road
+		ch := make(chan road)
+		ch2 := make(chan road)
+		go bfs(Maps.maps, player.x, player.y, ch)
+		go bfs(Maps.maps2, player.x, player.y, ch2)
+		multiPath, _ := <-ch
+		multiPath2, _ := <-ch2
+		// multiPath = bfs(Maps.maps, player.x, player.y)
+		path = multiPath.optimal(&player)
 
 		if path == nil {
 			fmt.Fprintf(os.Stderr, "BFS nil pointer\n")
-
-			path = bfs(Maps.maps2, player.x, player.y, 'q')
-			fmt.Fprintf(os.Stderr, "q\n")
+			path = multiPath2.optimal(&player)
 
 			if path == nil {
 				fmt.Println("stay")
@@ -105,7 +96,9 @@ func main() {
 	}
 }
 
-func bfs(maps [][]*coord, x, y int, triger rune) *coord {
+func bfs(maps [][]*coord, x, y int, ch chan road) {
+	var r road
+	r.player = maps[y][x]
 	var open []*coord
 	open = append(open, maps[y][x])
 	for len(open) != 0 {
@@ -114,26 +107,104 @@ func bfs(maps [][]*coord, x, y int, triger rune) *coord {
 		if now.touch && len(open) != 0 {
 			continue
 		}
-		if now.name == triger {
-			return now
+		if now.name == 'm' {
+			if r.monster == nil {
+				fmt.Fprintf(os.Stderr, "m\n")
+				r.monster = now
+			}
+		}
+		if now.name == 'b' {
+			if r.bonus == nil {
+				fmt.Fprintf(os.Stderr, "b\n")
+				r.bonus = now
+			}
+		}
+		if now.name == 'd' {
+			if r.dagger == nil {
+				fmt.Fprintf(os.Stderr, "d\n")
+				r.dagger = now
+			}
+		}
+		if now.name == '#' {
+			if r.gold == nil {
+				fmt.Fprintf(os.Stderr, "#\n")
+				r.gold = now
+			}
+		}
+		if now.name == 'q' {
+			fmt.Fprintf(os.Stderr, "q\n")
+			r.quit = now
 		}
 		for _, i := range now.neighbors {
-
-			if i.name == triger {
-				i.parent = now
-				return i
-			}
-			if i.name == 'm' {
-				continue
-			}
 			if i.touch {
 				continue
 			}
+			// if i.name == 'm' {
+			// 	if r.monster == nil {
+			// 		fmt.Fprintf(os.Stderr, "m\n")
+			// 		r.monster = i
+			// 	}
+			// }
+			// if i.name == 'b' {
+			// 	fmt.Fprintf(os.Stderr, "b\n")
+			// 	if r.bonus == nil {
+			// 		r.bonus = i
+			// 	}
+			// }
+			// if i.name == 'd' {
+			// 	if r.dagger == nil {
+			// 		fmt.Fprintf(os.Stderr, "d\n")
+			// 		r.dagger = i
+			// 	}
+			// }
+			// if i.name == '#' {
+			// 	if r.gold == nil {
+			// 		fmt.Fprintf(os.Stderr, "#\n")
+			// 		r.gold = i
+			// 	}
+			// }
+			// if i.name == 'q' {
+			// 	fmt.Fprintf(os.Stderr, "q\n")
+			// 	r.quit = i
+			// }
+
 			i.parent = now
 			i.depth = now.depth + 1
 			open = append(open, i)
 		}
 		now.touch = true
+	}
+	ch <- r
+}
+
+type road struct {
+	player  *coord
+	gold    *coord
+	bonus   *coord
+	dagger  *coord
+	monster *coord
+	quit    *coord
+}
+
+func (self *road) optimal(player *user) *coord {
+	if player.param1 == 0 {
+		if self.gold != nil {
+			return self.gold
+		} else if self.bonus != nil {
+			return self.bonus
+		} else if self.dagger != nil {
+			return self.dagger
+		} else if self.quit != nil {
+			return self.quit
+		}
+	} else {
+		if self.monster != nil {
+			if self.monster.depth < self.gold.depth+2 {
+				return self.monster
+			} else {
+				return self.gold
+			}
+		}
 	}
 	return nil
 }
@@ -182,18 +253,38 @@ func initMap(Maps mapsType) mapsType {
 }
 
 func monsterAgreZone(maps [][]*coord, x, y, aur int) [][]*coord {
-	for i := -1 * aur; i <= aur; i++ {
-		for j := -1 * aur; j <= aur; j++ {
-			// 			if (i*i == 4 && j != 0) || (j*j == 4 && i != 0) {
-			// 				continue
-			// 			}
-			xn := x + i
-			yn := y + j
-			if xn >= 0 && xn < len(maps[0]) && yn >= 0 && yn < len(maps) {
-				maps[yn][xn].touch = true
-				maps[yn][xn].coin = 100
+	// for i := -1 * aur; i <= aur; i++ {
+	// 	for j := -1 * aur; j <= aur; j++ {
+	// 		// 			if (i*i == 4 && j != 0) || (j*j == 4 && i != 0) {
+	// 		// 				continue
+	// 		// 			}
+	// 		xn := x + i
+	// 		yn := y + j
+	// 		if xn >= 0 && xn < len(maps[0]) && yn >= 0 && yn < len(maps) {
+	// 			maps[yn][xn].touch = true
+	// 			maps[yn][xn].coin = 100
+	// 		}
+	// 	}
+	// }
+	open := []*coord{}
+	open = append(open, maps[y][x])
+	maps[y][x].touch = true
+	for len(open) != 0 {
+		now := open[0]
+		open = open[1:]
+		for _, i := range now.neighbors {
+			if i.touch {
+				continue
 			}
+			i.depth = now.depth + 1
+			if i.depth == aur+1 {
+				i.depth = 0
+				continue
+			}
+			i.touch = true
+			open = append(open, i)
 		}
+		now.depth = 0
 	}
 	return maps
 }
