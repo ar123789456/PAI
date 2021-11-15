@@ -33,7 +33,7 @@ func main() {
 		// }
 		baseInfo.bfs()
 		// use `os.Stderr` to print for debugging
-		fmt.Fprintf(os.Stderr, "debug code\n")
+		// fmt.Fprintf(os.Stderr, "debug code\n")
 
 		baseInfo.PrintResult()
 		// this will choose one of random actions
@@ -69,8 +69,9 @@ func (self *base) PrintResult() {
 		fmt.Fprintf(os.Stderr, "search Monster\n")
 		// m = true
 		self.bfsMonter()
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("x %v, y %v\n", self.path.x, self.path.y))
+		// fmt.Fprintf(os.Stderr, fmt.Sprintf("x %v, y %v\n", self.path.x, self.path.y))
 		if self.path != nil {
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("x %v, y %v\n", self.path.x, self.path.y))
 			if self.path.distans >= 3 {
 				fmt.Fprintf(os.Stderr, fmt.Sprintf("self.path.distanse %v\n", self.path.distans))
 				fmt.Println(actions[4])
@@ -83,18 +84,26 @@ func (self *base) PrintResult() {
 				self.path = self.path.parent
 			}
 		}
+		p := self.path
 		for _, i := range self.maps[self.mob.me.y][self.mob.me.x].neighbors {
 			if i.site {
 				continue
 			}
 			self.path = i
+			if len(i.neighbors) == 1 {
+				continue
+			}
 			break
+		}
+		if self.path == p {
+			fmt.Println(actions[4])
+			fmt.Fprintf(os.Stderr, actions[4])
 		}
 
 	}
 	x = self.mob.me.x - self.path.x
 	y = self.mob.me.y - self.path.y
-
+	fmt.Fprintf(os.Stderr, fmt.Sprintf("x := %v, y := %v\n", x, y))
 	if x < 0 {
 		fmt.Println(actions[1])
 		fmt.Fprintf(os.Stderr, actions[1])
@@ -129,11 +138,13 @@ type Mobs struct {
 func (self *Mobs) initMobs(baseinfo *base) {
 	var n int
 	fmt.Scan(&n)
+	fmt.Fprintf(os.Stderr, fmt.Sprintf("%v", n))
 	self.n = n
 	// read entities
 	for i := 0; i < n; i++ {
 		var mob Mob
 		fmt.Scan(&mob.name, &mob.pID, &mob.x, &mob.y, &mob.param1, &mob.param2)
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v %v %v\n", mob.name, mob.pID, mob.x, mob.y, mob.param1, mob.param2))
 		if mob.pID == 0 {
 			self.monster = append(self.monster, &mob)
 			baseinfo.maps[mob.y][mob.x].name = "m"
@@ -180,6 +191,7 @@ func (self *base) initmaps() {
 		mapsBool = true
 	}
 	var w, h, playerID, tick int
+	fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v\n", w, h, playerID, tick))
 	fmt.Scan(&w, &h, &playerID, &tick)
 	self.h = h
 	self.w = w
@@ -257,16 +269,22 @@ type box struct {
 	touchMons bool
 	site      bool
 	distans   int
+	findDis   int
 }
 
 func (self *base) bfs() {
 	var open []*box
 	open = append(open, self.maps[self.mob.me.y][self.mob.me.x])
+	m := 0
 	for len(open) != 0 {
 		now := open[0]
 		open = open[1:]
 		fmt.Fprintf(os.Stderr, now.name)
-		if now.touch || now.monsaura {
+		if now.touch {
+			continue
+		}
+		if now.monsaura {
+			m++
 			continue
 		}
 		// if len(now.neighbors) == 2 {
@@ -274,22 +292,29 @@ func (self *base) bfs() {
 		// 		continue
 		// 	}
 		// }
-		if now.name == "#" {
-			fmt.Fprintf(os.Stderr, "find #\n")
-			// fmt.Println(string(now.name))
-			self.path = now
-			return
-		}
 		if now.name == "d" {
 			fmt.Fprintf(os.Stderr, "find d\n")
 			self.path = now
 			return
 		}
 		if now.name == "b" {
+			if m != 0 && (now.findDis < 2 || len(now.neighbors) == 1) {
+				continue
+			}
 			fmt.Fprintf(os.Stderr, "find b\n")
 			self.path = now
 			return
 		}
+		if now.name == "#" {
+			if m != 0 && (now.findDis < 2 || len(now.neighbors) == 1) {
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "find #\n")
+			// fmt.Println(string(now.name))
+			self.path = now
+			return
+		}
+
 		if self.mob.me.param1 != 0 {
 			if now.name == "m" {
 				fmt.Fprintf(os.Stderr, "find m\n")
@@ -300,7 +325,11 @@ func (self *base) bfs() {
 
 		for _, i := range now.neighbors {
 
-			if i.touch || i.monsaura {
+			if i.touch {
+				continue
+			}
+			if i.monsaura {
+				m++
 				continue
 			}
 			// if len(i.neighbors) == 2 {
@@ -309,27 +338,35 @@ func (self *base) bfs() {
 			// 	}
 			// }
 			i.parent = now
+			i.findDis = now.findDis + 1
 
+			if i.name == "d" {
+				fmt.Fprintf(os.Stderr, "find d\n")
+				self.path = i
+				return
+			}
+			if i.name == "b" {
+				if m != 0 && (i.findDis < 2 || len(i.neighbors) == 1) {
+					continue
+				}
+				fmt.Fprintf(os.Stderr, "find b\n")
+				self.path = i
+				return
+			}
 			if i.name == "#" {
+				if m != 0 && (i.findDis < 2 || len(i.neighbors) == 1) {
+					continue
+				}
 				fmt.Fprintf(os.Stderr, "find #\n")
 				// fmt.Println(string(now.name))
 				self.path = i
 				return
 			}
-			if now.name == "d" {
-				fmt.Fprintf(os.Stderr, "find d\n")
-				self.path = now
-				return
-			}
-			if now.name == "b" {
-				fmt.Fprintf(os.Stderr, "find b\n")
-				self.path = now
-				return
-			}
+
 			if self.mob.me.param1 != 0 {
 				if now.name == "m" {
 					fmt.Fprintf(os.Stderr, "find m\n")
-					self.path = now
+					self.path = i
 					return
 				}
 			}
