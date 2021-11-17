@@ -3,16 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
-const monsterRadius = 3
+const monsterRadius = 4
 
 var dagger int
 
-var lastBox *Mob
-
 func main() {
 	for true {
+		start := time.Now()
 		var baseInfo base
 
 		baseInfo.initmaps()
@@ -33,19 +33,13 @@ func main() {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
 			}
 		}
-		// for _, v := range baseInfo.maps {
-		// 	for _, i := range v {
-		// 		fmt.Print(i.monsaura, " ")
-		// 	}
 
-		// 	fmt.Println("")
-		// }
 		baseInfo.bfs()
-		// use `os.Stderr` to print for debugging
-		// fmt.Fprintf(os.Stderr, "debug code\n")
 
 		baseInfo.PrintResult()
-		lastBox = baseInfo.mob.me
+		duration := time.Since(start)
+
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("%v\n", duration))
 
 		// this will choose one of random actions
 
@@ -78,45 +72,15 @@ func (self *base) PrintResult() {
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "search Monster\n")
-		lastme := self.maps[lastBox.y][lastBox.x]
-		if !lastme.monsaura && (len(lastme.neighbors) != 2) {
-			self.path = lastme
-		} else {
-			// m = true
-			self.bfsMonter()
-			// lastme.site = true
-			// fmt.Fprintf(os.Stderr, fmt.Sprintf("x %v, y %v\n", self.path.x, self.path.y))
-			if self.path != nil {
-				fmt.Fprintf(os.Stderr, fmt.Sprintf("x %v, y %v\n", self.path.x, self.path.y))
-				if self.path.distans > 3 {
-					fmt.Fprintf(os.Stderr, fmt.Sprintf("self.path.distanse %v\n", self.path.distans))
-					fmt.Println(actions[4])
-					fmt.Fprintf(os.Stderr, actions[4])
-
-					return
-				}
-				for self.path.parent != nil {
-					self.path.site = true
-					self.path = self.path.parent
-				}
+		for _, i := range self.maps[self.mob.me.y][self.mob.me.x].neighbors {
+			if len(i.neighbors) == 1 {
+				continue
 			}
-			p := self.path
-			for _, i := range self.maps[self.mob.me.y][self.mob.me.x].neighbors {
-				if i.site {
-					continue
-				}
+			if self.path == nil {
 				self.path = i
-				if i.monsaura {
-					continue
-				}
-				if len(i.neighbors) == 1 {
-					continue
-				}
-				break
 			}
-			if self.path == p && len(self.maps[self.mob.me.y][self.mob.me.x].neighbors) != 1 {
-				fmt.Println(actions[4])
-				fmt.Fprintf(os.Stderr, actions[4])
+			if self.path.price > i.price {
+				self.path = i
 			}
 		}
 	}
@@ -182,15 +146,16 @@ func mobsAura(baseinfo base, mob Mob, radius int) base {
 		now := open[0]
 		open = open[1:]
 		if now.radius == radius {
+			now.price += radius - now.radius + 1
 			continue
 		}
 		if now.monsaura {
 			continue
 		}
 		now.monsaura = true
+		now.price += radius - now.radius + 1
 		for _, v := range now.neighbors {
-			if v == baseinfo.maps[baseinfo.mob.me.y][baseinfo.mob.me.x] {
-				v.monsaura = true
+			if v.monsaura {
 				continue
 			}
 			v.radius = now.radius + 1
@@ -211,7 +176,7 @@ func (self *base) initmaps() {
 		mapsBool = true
 	}
 	var w, h, playerID, tick int
-	// fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v\n", w, h, playerID, tick))
+	fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v\n", w, h, playerID, tick))
 	fmt.Scan(&w, &h, &playerID, &tick)
 	self.h = h
 	self.w = w
@@ -222,7 +187,7 @@ func (self *base) initmaps() {
 		line := ""
 		var l []*box
 		fmt.Scan(&line)
-		// fmt.Fprint(os.Stderr, line, "\n")
+		fmt.Fprint(os.Stderr, line, "\n")
 		for x, name := range line {
 			if mapsBool {
 				self.maps[i][x].name = string(name)
@@ -278,18 +243,20 @@ func (self *base) addneighbors() {
 }
 
 type box struct {
-	name      string
-	y         int
-	x         int
-	parent    *box
-	neighbors []*box
-	monsaura  bool
-	radius    int
-	touch     bool
-	touchMons bool
-	site      bool
-	distans   int
-	findDis   int
+	name       string
+	y          int
+	x          int
+	parent     *box
+	neighbors  []*box
+	monsaura   bool
+	radius     int
+	touch      bool
+	touchenamy bool
+	touchMons  bool
+	site       bool
+	distans    int
+	findDis    int
+	price      int
 }
 
 func (self *base) bfs() {
@@ -307,11 +274,6 @@ func (self *base) bfs() {
 			m++
 			continue
 		}
-		// if len(now.neighbors) == 2 {
-		// 	if now.neighbors[0].monsaura || now.neighbors[1].monsaura {
-		// 		continue
-		// 	}
-		// }
 		if now.name == "d" {
 			fmt.Fprintf(os.Stderr, "find d\n")
 			self.path = now
@@ -405,42 +367,5 @@ func (self *base) bfs() {
 			open = append(open, i)
 		}
 		now.touch = true
-	}
-}
-
-func (self *base) bfsMonter() {
-	var open []*box
-	open = append(open, self.maps[self.mob.me.y][self.mob.me.x])
-	for len(open) != 0 {
-		now := open[0]
-		open = open[1:]
-		fmt.Fprintf(os.Stderr, now.name)
-		if now.touchMons {
-			continue
-		}
-		if now.name == "m" {
-			fmt.Fprintf(os.Stderr, "find m\n")
-			// fmt.Println(string(now.name))
-			self.path = now
-			return
-		}
-
-		for _, i := range now.neighbors {
-
-			if i.touchMons {
-				continue
-			}
-			i.parent = now
-			i.distans = now.distans + 1
-			if i.name == "m" {
-				fmt.Fprintf(os.Stderr, "find m\n")
-				// fmt.Println(string(now.name))
-
-				self.path = i
-				return
-			}
-			open = append(open, i)
-		}
-		now.touchMons = true
 	}
 }
