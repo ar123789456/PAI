@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const monsterRadius = 4
+const monsterRadius = 3
 
 var dagger int
 
@@ -32,6 +32,9 @@ func main() {
 			if mobs.me.param1 == 0 {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
 			}
+		}
+		if mobs.enamy != nil {
+			baseInfo = mobsAura(baseInfo, *mobs.enamy, monsterRadius-1)
 		}
 
 		baseInfo.bfs()
@@ -149,7 +152,7 @@ func mobsAura(baseinfo base, mob Mob, radius int) base {
 			now.price += radius - now.radius + 1
 			continue
 		}
-		if now.monsaura {
+		if now.monsaura && len(open) != 0 {
 			continue
 		}
 		now.monsaura = true
