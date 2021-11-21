@@ -351,13 +351,14 @@ type box struct {
 }
 
 func (self *base) bfs() {
+	fmt.Fprintf(os.Stderr, "activate BFS\n")
 	var open []*box
 	open = append(open, self.maps[self.mob.me.y][self.mob.me.x])
 	m := 0
 	for len(open) != 0 {
 		now := open[0]
 		open = open[1:]
-		fmt.Fprintf(os.Stderr, now.name)
+		// fmt.Fprintf(os.Stderr, now.name)
 		if now.touch {
 			continue
 		}
@@ -366,7 +367,7 @@ func (self *base) bfs() {
 			continue
 		}
 		if now.name == "d" {
-			fmt.Fprintf(os.Stderr, "find d\n")
+			// fmt.Fprintf(os.Stderr, "find d\n")
 			if self.mob.me.dagger == nil {
 				self.mob.me.dagger = now
 			}
@@ -378,7 +379,7 @@ func (self *base) bfs() {
 			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "find b\n")
+			// fmt.Fprintf(os.Stderr, "find b\n")
 			if self.mob.me.bonus == nil {
 				self.mob.me.bonus = now
 			}
@@ -390,7 +391,7 @@ func (self *base) bfs() {
 			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "find #\n")
+			// fmt.Fprintf(os.Stderr, "find #\n")
 			if self.mob.me.gold == nil {
 				self.mob.me.gold = now
 			}
@@ -415,7 +416,7 @@ func (self *base) bfs() {
 			i.findDis = now.findDis + 1
 
 			if i.name == "d" {
-				fmt.Fprintf(os.Stderr, "find d\n")
+				// fmt.Fprintf(os.Stderr, "find d\n")
 				if self.mob.me.dagger == nil {
 					self.mob.me.dagger = i
 				}
@@ -427,7 +428,7 @@ func (self *base) bfs() {
 				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "find b\n")
+				// fmt.Fprintf(os.Stderr, "find b\n")
 				if self.mob.me.bonus == nil {
 					self.mob.me.bonus = i
 				}
@@ -439,7 +440,7 @@ func (self *base) bfs() {
 				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "find #\n")
+				// fmt.Fprintf(os.Stderr, "find #\n")
 				// fmt.Println(string(now.name))
 				if self.mob.me.gold == nil {
 					self.mob.me.gold = i
@@ -459,7 +460,7 @@ func (self *base) bfsRun() {
 	for len(open) != 0 {
 		now := open[0]
 		open = open[1:]
-		fmt.Fprintf(os.Stderr, now.name)
+		// fmt.Fprintf(os.Stderr, now.name)
 		if now.touch {
 			continue
 		}
@@ -468,7 +469,7 @@ func (self *base) bfsRun() {
 			continue
 		}
 		if now.name == "d" {
-			fmt.Fprintf(os.Stderr, "find d\n")
+			// fmt.Fprintf(os.Stderr, "find d\n")
 			if self.mob.me.dagger == nil {
 				self.mob.me.dagger = now
 			}
@@ -480,7 +481,7 @@ func (self *base) bfsRun() {
 			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "find b\n")
+			// fmt.Fprintf(os.Stderr, "find b\n")
 			if self.mob.me.bonus == nil {
 				self.mob.me.bonus = now
 			}
@@ -492,7 +493,7 @@ func (self *base) bfsRun() {
 			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
 				continue
 			}
-			fmt.Fprintf(os.Stderr, "find #\n")
+			// fmt.Fprintf(os.Stderr, "find #\n")
 			if self.mob.me.gold == nil {
 				self.mob.me.gold = now
 			}
@@ -525,7 +526,7 @@ func (self *base) bfsRun() {
 			i.findDis = now.findDis + 1
 
 			if i.name == "d" {
-				fmt.Fprintf(os.Stderr, "find d\n")
+				// fmt.Fprintf(os.Stderr, "find d\n")
 				if self.mob.me.dagger == nil {
 					self.mob.me.dagger = i
 				}
@@ -537,7 +538,7 @@ func (self *base) bfsRun() {
 				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "find b\n")
+				// fmt.Fprintf(os.Stderr, "find b\n")
 				if self.mob.me.bonus == nil {
 					self.mob.me.bonus = i
 				}
@@ -549,7 +550,7 @@ func (self *base) bfsRun() {
 				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "find #\n")
+				// fmt.Fprintf(os.Stderr, "find #\n")
 				// fmt.Println(string(now.name))
 				if self.mob.me.gold == nil {
 					self.mob.me.gold = i
