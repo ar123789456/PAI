@@ -12,14 +12,14 @@ var dagger int
 
 var bonus int
 
-var allGold int
 var myGold int
 var gold int
-var oldGold int
 var enamyGold int
 
+var pastBaseInfo *base
+
 func main() {
-	for true {
+	for {
 		if dagger != 0 {
 			dagger--
 		}
@@ -31,26 +31,25 @@ func main() {
 
 		baseInfo.initmaps()
 		baseInfo.addneighbors()
-		baseInfo.maps[0][0].name = "p"
-		if gold > oldGold && oldGold != 0 {
-			enamyGold++
-		}
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("my= %v, enamy = %v, all = %v\n", myGold, enamyGold, allGold))
+		// baseInfo.maps[0][0].name = "p"
 
 		var mobs Mobs
 		mobs.initMobs(&baseInfo)
 		baseInfo.mob = &mobs
-
+		score(baseInfo.mob.me, baseInfo.mob.enamy)
+		pastBaseInfo = &baseInfo
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("my= %v, enamy = %v \n", myGold, enamyGold))
 		for _, v := range mobs.monster {
 			if mobs.me.param1 == 0 {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
+			} else {
+				baseInfo = mobsAura(baseInfo, *v, monsterRadius-2)
 			}
 		}
 
 		baseInfo.bfs()
-		if gold != 1 {
-			baseInfo.OptimalRoad()
-		}
+		baseInfo.OptimalRoad()
+
 		baseInfo.PrintResult()
 		duration := time.Since(start)
 
@@ -66,7 +65,38 @@ type base struct {
 	path                 *box
 }
 
+func score(me, enamy *Mob) {
+	if pastBaseInfo == nil {
+		return
+	}
+	if enamy == nil {
+		return
+	}
+	if pastBaseInfo.maps[me.y][me.x].name == "#" {
+		if me.param2 != 0 {
+			myGold += 2
+		} else {
+			myGold++
+		}
+	}
+	if pastBaseInfo.maps[enamy.y][enamy.x].name == "#" {
+		if enamy.param2 != 0 {
+			enamyGold += 2
+		} else {
+			enamyGold++
+		}
+	}
+}
+
 func (self *base) OptimalRoad() {
+	if gold == 1 && enamyGold < myGold {
+
+		self.path = self.mob.me.dagger
+		if self.path == nil {
+			self.path = self.mob.me.bonus
+		}
+		return
+	}
 	if self.mob.me.bonus != nil && self.mob.me.bonus.findDis < bonus {
 		self.path = self.mob.me.bonus
 		return
@@ -83,9 +113,10 @@ func (self *base) OptimalRoad() {
 func (self *base) PrintResult() {
 	var x, y int
 	actions := []string{"left", "right", "up", "down", "stay"}
-	// if self.path == nil {
-	// 	self.runBFS()
-	// }
+	if self.path == nil {
+		self.bfsRun()
+		self.OptimalRoad()
+	}
 	if self.path != nil {
 		if self.path.parent != nil {
 			for self.path.parent.parent != nil {
@@ -98,19 +129,25 @@ func (self *base) PrintResult() {
 		fmt.Fprintf(os.Stderr, "Monster!!! Run\n")
 		me := self.maps[self.mob.me.y][self.mob.me.x]
 		for _, i := range me.neighbors {
-			if me.x == 6 {
+			if me.x == 6 && me.y < self.h-2 && me.y > 2 {
 				self.path = me
 				break
 			}
+
+			nei := i.neighbors
+			if len(nei) == 2 {
+				if nei[0].x != nei[1].x {
+					if nei[0].y != nei[1].y {
+						continue
+					}
+				}
+			}
+
 			if len(i.neighbors) == 1 {
 				continue
 			}
 			if self.path == nil {
 				self.path = i
-			}
-			if len(me.neighbors) == 2 && me.neighbors[0] == me.neighbors[1] {
-				self.path = me
-				break
 			}
 			if self.path.price > i.price {
 				self.path = i
@@ -120,14 +157,6 @@ func (self *base) PrintResult() {
 	x = self.mob.me.x - self.path.x
 	y = self.mob.me.y - self.path.y
 	fmt.Fprintf(os.Stderr, fmt.Sprintf("x := %v, y := %v\n", x, y))
-	if self.path.name == "#" {
-		if self.mob.me.param2 != 0 {
-			myGold += 2
-		} else {
-			myGold++
-		}
-		enamyGold = allGold - myGold
-	}
 	if x < 0 {
 		fmt.Println(actions[1])
 		fmt.Fprintf(os.Stderr, actions[1])
@@ -188,14 +217,14 @@ func mobsAura(baseinfo base, mob Mob, radius int) base {
 		now := open[0]
 		open = open[1:]
 		if now.radius == radius {
-			now.price += radius - now.radius + 1
+			now.price += (radius - now.radius + 1) * 10
 			continue
 		}
 		if now.monsaura {
 			continue
 		}
 		now.monsaura = true
-		now.price += radius - now.radius + 1
+		now.price += (radius - now.radius + 1) * 10
 		for _, v := range now.neighbors {
 			if v.monsaura {
 				continue
@@ -217,13 +246,12 @@ type Mob struct {
 func (self *base) initmaps() {
 	var w, h, playerID, tick int
 	fmt.Scan(&w, &h, &playerID, &tick)
-	fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v\n", w, h, playerID, tick))
+	// fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v\n", w, h, playerID, tick))
 	self.h = h
 	self.w = w
 	self.playerID = playerID
 	self.tick = tick
 	// read map
-	oldGold = gold
 	gold = 0
 	bon := 0
 	dag := 0
@@ -231,7 +259,7 @@ func (self *base) initmaps() {
 		line := ""
 		var l []*box
 		fmt.Scan(&line)
-		fmt.Fprint(os.Stderr, line, "\n")
+		// fmt.Fprint(os.Stderr, line, "\n")
 		for x, name := range line {
 			var b box
 			b.name = string(name)
@@ -252,6 +280,7 @@ func (self *base) initmaps() {
 			}
 			if b.name == "#" {
 				gold++
+				// b.price = -1
 			}
 			l = append(l, &b)
 		}
@@ -262,9 +291,6 @@ func (self *base) initmaps() {
 	}
 	if dag == 0 {
 		dag = 0
-	}
-	if gold > allGold {
-		allGold = gold
 	}
 }
 
@@ -281,9 +307,9 @@ func (self *base) addneighbors() {
 			if v.name == "!" {
 				continue
 			}
-			if x1 >= 0 {
-				if self.maps[y][x1].name != "!" {
-					v.neighbors = append(v.neighbors, self.maps[y][x1])
+			if y2 < self.h {
+				if self.maps[y2][x].name != "!" {
+					v.neighbors = append(v.neighbors, self.maps[y2][x])
 				}
 			}
 			if y1 >= 0 {
@@ -296,11 +322,12 @@ func (self *base) addneighbors() {
 					v.neighbors = append(v.neighbors, self.maps[y][x2])
 				}
 			}
-			if y2 < self.h {
-				if self.maps[y2][x].name != "!" {
-					v.neighbors = append(v.neighbors, self.maps[y2][x])
+			if x1 >= 0 {
+				if self.maps[y][x1].name != "!" {
+					v.neighbors = append(v.neighbors, self.maps[y][x1])
 				}
 			}
+
 		}
 	}
 }
@@ -370,7 +397,9 @@ func (self *base) bfs() {
 		}
 
 		for _, i := range now.neighbors {
-
+			// if len(i.neighbors) == 2 && (i.neighbors[0].monsaura || i.neighbors[0].monsaura) {
+			// 	continue
+			// }
 			if i.touch {
 				continue
 			}
@@ -422,30 +451,112 @@ func (self *base) bfs() {
 	}
 }
 
-func (self *base) runBFS() {
-	open := []*box{}
+func (self *base) bfsRun() {
+	fmt.Fprintf(os.Stderr, "BFSRun!!! Run\n")
+	var open []*box
 	open = append(open, self.maps[self.mob.me.y][self.mob.me.x])
+	m := 0
 	for len(open) != 0 {
 		now := open[0]
 		open = open[1:]
-		if now.x == 6 {
-			self.path = now
-			return
-		}
-		if now.runtouch {
+		fmt.Fprintf(os.Stderr, now.name)
+		if now.touch {
 			continue
 		}
-		for _, i := range now.neighbors {
-			if now.runtouch {
+		if now.monsaura && len(open) != 0 {
+			m++
+			continue
+		}
+		if now.name == "d" {
+			fmt.Fprintf(os.Stderr, "find d\n")
+			if self.mob.me.dagger == nil {
+				self.mob.me.dagger = now
+			}
+		}
+		if now.name == "b" {
+			if m != 0 && now.findDis < 2 {
 				continue
 			}
-			if i.x == 6 {
-				self.path = i
-				return
+			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
+				continue
 			}
-			i.parent = now
+			fmt.Fprintf(os.Stderr, "find b\n")
+			if self.mob.me.bonus == nil {
+				self.mob.me.bonus = now
+			}
+		}
+		if now.name == "#" {
+			if m != 0 && now.findDis < 2 {
+				continue
+			}
+			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "find #\n")
+			if self.mob.me.gold == nil {
+				self.mob.me.gold = now
+			}
+		}
+
+		for _, i := range now.neighbors {
+			nei := i.neighbors
+			if len(nei) == 2 {
+				if nei[0].x != nei[1].x {
+					if nei[0].y != nei[1].y {
+						continue
+					}
+				}
+			}
+			if i.touch {
+				continue
+			}
+			if len(i.neighbors) == 1 {
+				continue
+			}
+			if i.monsaura {
+				m++
+				continue
+			}
+			if now.parent != i {
+				i.parent = now
+			} else {
+				continue
+			}
+			i.findDis = now.findDis + 1
+
+			if i.name == "d" {
+				fmt.Fprintf(os.Stderr, "find d\n")
+				if self.mob.me.dagger == nil {
+					self.mob.me.dagger = i
+				}
+			}
+			if i.name == "b" {
+				if m != 0 && i.findDis < 2 {
+					continue
+				}
+				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
+					continue
+				}
+				fmt.Fprintf(os.Stderr, "find b\n")
+				if self.mob.me.bonus == nil {
+					self.mob.me.bonus = i
+				}
+			}
+			if i.name == "#" {
+				if m != 0 && i.findDis < 2 {
+					continue
+				}
+				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
+					continue
+				}
+				fmt.Fprintf(os.Stderr, "find #\n")
+				// fmt.Println(string(now.name))
+				if self.mob.me.gold == nil {
+					self.mob.me.gold = i
+				}
+			}
 			open = append(open, i)
 		}
-		now.runtouch = true
+		now.touch = true
 	}
 }
