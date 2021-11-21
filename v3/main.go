@@ -31,7 +31,7 @@ func main() {
 
 		baseInfo.initmaps()
 		baseInfo.addneighbors()
-		// baseInfo.maps[0][0].name = "p"
+		baseInfo.maps[0][0].name = "q"
 
 		var mobs Mobs
 		mobs.initMobs(&baseInfo)
@@ -487,9 +487,9 @@ func (self *base) bfsRun() {
 			}
 		}
 		if now.name == "#" {
-			if m != 0 && now.findDis < 2 {
-				continue
-			}
+			// if m != 0 && now.findDis < 2 {
+			// 	continue
+			// }
 			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
 				continue
 			}
@@ -498,6 +498,7 @@ func (self *base) bfsRun() {
 				self.mob.me.gold = now
 			}
 		}
+		now.touch = true
 
 		for _, i := range now.neighbors {
 			nei := i.neighbors
@@ -544,9 +545,9 @@ func (self *base) bfsRun() {
 				}
 			}
 			if i.name == "#" {
-				if m != 0 && i.findDis < 2 {
-					continue
-				}
+				// if m != 0 && i.findDis < 2 {
+				// 	continue
+				// }
 				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
 					continue
 				}
