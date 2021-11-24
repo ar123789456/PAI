@@ -145,6 +145,9 @@ func (self *base) PrintResult() {
 					break
 				}
 			}
+			if !me.monsaura && len(me.neighbors) != 1 {
+				self.path = me
+			}
 
 			nei := i.neighbors
 			if len(nei) == 2 {
@@ -235,12 +238,16 @@ func (self *base) createMonsterBool() {
 
 func mobsAura(baseinfo base, mob Mob, radius int) base {
 	open := []*box{}
+	closed := []*box{}
 	baseinfo.maps[mob.y][mob.x].radius = 0
 	open = append(open, baseinfo.maps[mob.y][mob.x])
 	baseinfo.maps[mob.y][mob.x].touch = true
 	for len(open) != 0 {
 		now := open[0]
 		open = open[1:]
+		if findV(closed, now) {
+			continue
+		}
 		if now.radius == radius {
 			now.price += (radius - now.radius + 1)
 			me := baseinfo.mob.me
@@ -249,21 +256,25 @@ func mobsAura(baseinfo base, mob Mob, radius int) base {
 			}
 			continue
 		}
-		if now.monsaura {
-			continue
-		}
 		now.monsaura = true
 		now.price += (radius - now.radius + 1)
+		closed = append(closed, now)
 		for _, v := range now.neighbors {
-			if v.monsaura {
-				continue
-			}
 			v.radius = 0
 			v.radius = now.radius + 1
 			open = append(open, v)
 		}
 	}
 	return baseinfo
+}
+
+func findV(closed []*box, v *box) bool {
+	for _, value := range closed {
+		if value == v {
+			return true
+		}
+	}
+	return false
 }
 
 type Mob struct {
