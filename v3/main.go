@@ -18,11 +18,16 @@ var myGold int
 var gold int
 var enamyGold int
 
+var daggerTimer int
+
 var pastBaseInfo *base
 var monsterPath [][]bool
 
 func main() {
 	for {
+		if daggerTimer != 0 {
+			daggerTimer--
+		}
 		if dagger != 0 {
 			dagger--
 		}
@@ -34,7 +39,7 @@ func main() {
 
 		baseInfo.initmaps()
 		baseInfo.addneighbors()
-		baseInfo.maps[0][0].name = "q"
+		// baseInfo.maps[0][0].name = "q"
 
 		if len(monsterPath) == 0 {
 			baseInfo.createMonsterBool()
@@ -48,16 +53,17 @@ func main() {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("my= %v, enamy = %v \n", myGold, enamyGold))
 
 		for _, v := range mobs.monster {
-			if mobs.me.param1 == 0 {
+			if mobs.me.param1 == 0 || daggerTimer <= 1 {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
 			}
-			//  else {
-			// 	baseInfo = mobsAura(baseInfo, *v, monsterRadiusDagger)
-			// }
 		}
 
 		baseInfo.bfs()
 		baseInfo.OptimalRoad()
+
+		if baseInfo.path == nil {
+			baseInfo.OptimalRoad2()
+		}
 
 		baseInfo.PrintResult()
 		duration := time.Since(start)
@@ -65,13 +71,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("\n%v\n", duration))
 
 	}
-}
-
-type base struct {
-	maps                 [][]*box
-	w, h, playerID, tick int
-	mob                  *Mobs
-	path                 *box
 }
 
 func score(me, enamy *Mob) {
@@ -95,6 +94,56 @@ func score(me, enamy *Mob) {
 			enamyGold++
 		}
 	}
+	if pastBaseInfo.maps[me.y][me.x].name == "d" {
+		daggerTimer = 14
+	}
+}
+
+type Mobs struct {
+	n       int
+	me      *Mob
+	enamy   *Mob
+	monster []*Mob
+}
+
+func (self *Mobs) initMobs(baseinfo *base) {
+	var n int
+	fmt.Scan(&n)
+	fmt.Fprintf(os.Stderr, fmt.Sprintf("%v", n))
+	self.n = n
+	// read entities
+
+	for i := 0; i < n; i++ {
+		var mob Mob
+		fmt.Scan(&mob.name, &mob.pID, &mob.x, &mob.y, &mob.param1, &mob.param2)
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v %v %v\n", mob.name, mob.pID, mob.x, mob.y, mob.param1, mob.param2))
+		if mob.pID == 0 {
+			self.monster = append(self.monster, &mob)
+			baseinfo.maps[mob.y][mob.x].name = "m"
+			monsterPath[mob.y][mob.x] = true
+		} else if baseinfo.playerID == mob.pID {
+			self.me = &mob
+		} else {
+			self.enamy = &mob
+		}
+	}
+}
+
+type base struct {
+	maps                 [][]*box
+	w, h, playerID, tick int
+	mob                  *Mobs
+	path                 *box
+}
+
+func (self *base) createMonsterBool() {
+	for i := 0; i < self.h; i++ {
+		list := []bool{}
+		for j := 0; j < self.w; j++ {
+			list = append(list, false)
+		}
+		monsterPath = append(monsterPath, list)
+	}
 }
 
 func (self *base) OptimalRoad() {
@@ -107,8 +156,11 @@ func (self *base) OptimalRoad() {
 		return
 	}
 	if self.mob.me.bonus != nil && self.mob.me.bonus.findDis < bonus {
-		self.path = self.mob.me.bonus
-		return
+		if self.mob.me.param2 == 0 {
+			self.path = self.mob.me.bonus
+			return
+		}
+
 	}
 	if self.mob.me.dagger != nil && self.mob.me.dagger.findDis < dagger {
 		if self.mob.me.gold != nil && self.mob.me.dagger.findDis <= self.mob.me.gold.findDis+2 {
@@ -119,6 +171,30 @@ func (self *base) OptimalRoad() {
 		}
 	}
 	self.path = self.mob.me.gold
+}
+
+func (self *base) OptimalRoad2() {
+	if gold == 1 && enamyGold < myGold {
+		fmt.Fprintf(os.Stderr, "more gold than the enemy \n")
+		self.path = self.mob.me.ndagger
+		if self.path == nil {
+			self.path = self.mob.me.nbonus
+		}
+		return
+	}
+	if self.mob.me.nbonus != nil && self.mob.me.nbonus.findDis < bonus {
+		self.path = self.mob.me.nbonus
+		return
+	}
+	if self.mob.me.ndagger != nil && self.mob.me.ndagger.findDis < dagger {
+		if self.mob.me.ngold != nil && self.mob.me.ndagger.findDis <= self.mob.me.ngold.findDis+2 {
+			if len(self.mob.monster) != 0 {
+				self.path = self.mob.me.ndagger
+				return
+			}
+		}
+	}
+	self.path = self.mob.me.ngold
 }
 
 func (self *base) PrintResult() {
@@ -201,93 +277,6 @@ func (self *base) PrintResult() {
 	}
 	fmt.Println(actions[4])
 	fmt.Fprintf(os.Stderr, actions[4])
-}
-
-type Mobs struct {
-	n       int
-	me      *Mob
-	enamy   *Mob
-	monster []*Mob
-}
-
-func (self *Mobs) initMobs(baseinfo *base) {
-	var n int
-	fmt.Scan(&n)
-	fmt.Fprintf(os.Stderr, fmt.Sprintf("%v", n))
-	self.n = n
-	// read entities
-
-	for i := 0; i < n; i++ {
-		var mob Mob
-		fmt.Scan(&mob.name, &mob.pID, &mob.x, &mob.y, &mob.param1, &mob.param2)
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("%v %v %v %v %v %v\n", mob.name, mob.pID, mob.x, mob.y, mob.param1, mob.param2))
-		if mob.pID == 0 {
-			self.monster = append(self.monster, &mob)
-			baseinfo.maps[mob.y][mob.x].name = "m"
-			monsterPath[mob.y][mob.x] = true
-		} else if baseinfo.playerID == mob.pID {
-			self.me = &mob
-		} else {
-			self.enamy = &mob
-		}
-	}
-}
-
-func (self *base) createMonsterBool() {
-	for i := 0; i < self.h; i++ {
-		list := []bool{}
-		for j := 0; j < self.w; j++ {
-			list = append(list, false)
-		}
-		monsterPath = append(monsterPath, list)
-	}
-}
-
-func mobsAura(baseinfo base, mob Mob, radius int) base {
-	open := []*box{}
-	closed := []*box{}
-	baseinfo.maps[mob.y][mob.x].radius = 0
-	open = append(open, baseinfo.maps[mob.y][mob.x])
-	baseinfo.maps[mob.y][mob.x].touch = true
-	for len(open) != 0 {
-		now := open[0]
-		open = open[1:]
-		if findV(closed, now) {
-			continue
-		}
-		if now.radius == radius {
-			now.price += (radius - now.radius + 1)
-			me := baseinfo.mob.me
-			if me.x == now.x && me.y == now.y {
-				now.monsaura = true
-			}
-			continue
-		}
-		now.monsaura = true
-		now.price += (radius - now.radius + 1)
-		closed = append(closed, now)
-		for _, v := range now.neighbors {
-			v.radius = 0
-			v.radius = now.radius + 1
-			open = append(open, v)
-		}
-	}
-	return baseinfo
-}
-
-func findV(closed []*box, v *box) bool {
-	for _, value := range closed {
-		if value == v {
-			return true
-		}
-	}
-	return false
-}
-
-type Mob struct {
-	name                         string
-	pID, x, y, param1, param2    int
-	gold, bonus, dagger, monster *box
 }
 
 func (self *base) initmaps() {
@@ -379,6 +368,54 @@ func (self *base) addneighbors() {
 	}
 }
 
+func mobsAura(baseinfo base, mob Mob, radius int) base {
+	open := []*box{}
+	closed := []*box{}
+	baseinfo.maps[mob.y][mob.x].radius = 0
+	open = append(open, baseinfo.maps[mob.y][mob.x])
+	baseinfo.maps[mob.y][mob.x].touch = true
+	for len(open) != 0 {
+		now := open[0]
+		open = open[1:]
+		if findV(closed, now) {
+			continue
+		}
+		if now.radius == radius {
+			now.price += (radius - now.radius + 1)
+			me := baseinfo.mob.me
+			if me.x == now.x && me.y == now.y {
+				now.monsaura = true
+			}
+			continue
+		}
+		now.monsaura = true
+		now.price += (radius - now.radius + 1)
+		closed = append(closed, now)
+		for _, v := range now.neighbors {
+			v.radius = 0
+			v.radius = now.radius + 1
+			open = append(open, v)
+		}
+	}
+	return baseinfo
+}
+
+func findV(closed []*box, v *box) bool {
+	for _, value := range closed {
+		if value == v {
+			return true
+		}
+	}
+	return false
+}
+
+type Mob struct {
+	name                             string
+	pID, x, y, param1, param2        int
+	gold, bonus, dagger, monster     *box
+	ngold, nbonus, ndagger, nmonster *box
+}
+
 type box struct {
 	name         string
 	y            int
@@ -440,12 +477,15 @@ func (self *base) bfs() {
 				now.touch = true
 				continue
 			}
-			if now.findDis <= now.findDisenamy && gold != 1 {
+			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
 				now.touch = true
 				continue
 			}
-			if len(now.neighbors) == 1 && now.neighbors[0].monsaura {
+			if now.findDis <= now.findDisenamy && gold != 1 {
 				now.touch = true
+				if self.mob.me.ngold == nil {
+					self.mob.me.ngold = now
+				}
 				continue
 			}
 			// fmt.Fprintf(os.Stderr, "find #\n")
@@ -474,7 +514,7 @@ func (self *base) bfs() {
 
 			if i.name == "d" {
 				// fmt.Fprintf(os.Stderr, "find d\n")
-				if self.mob.me.dagger == nil {
+				if self.mob.me.dagger == nil && len(self.mob.monster) != 0 {
 					self.mob.me.dagger = i
 				}
 			}
@@ -494,15 +534,16 @@ func (self *base) bfs() {
 				if m != 0 && i.findDis < 2 {
 					continue
 				}
-				if i.findDis <= i.findDisenamy && gold != 1 {
-					i.touch = true
-					continue
-				}
 				if len(i.neighbors) == 1 && i.neighbors[0].monsaura {
 					continue
 				}
-				// fmt.Fprintf(os.Stderr, "find #\n")
-				// fmt.Println(string(now.name))
+				if i.findDis <= i.findDisenamy && gold != 1 {
+					i.touch = true
+					if self.mob.me.ngold == nil {
+						self.mob.me.ngold = i
+					}
+					continue
+				}
 				if self.mob.me.gold == nil {
 					self.mob.me.gold = i
 				}
