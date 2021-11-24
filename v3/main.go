@@ -50,9 +50,10 @@ func main() {
 		for _, v := range mobs.monster {
 			if mobs.me.param1 == 0 {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
-			} else {
-				baseInfo = mobsAura(baseInfo, *v, monsterRadiusDagger)
 			}
+			//  else {
+			// 	baseInfo = mobsAura(baseInfo, *v, monsterRadiusDagger)
+			// }
 		}
 
 		baseInfo.bfs()
@@ -138,7 +139,13 @@ func (self *base) PrintResult() {
 	} else {
 		fmt.Fprintf(os.Stderr, "Monster!!! Run\n")
 		me := self.maps[self.mob.me.y][self.mob.me.x]
-		for _, i := range me.neighbors {
+		for j := len(me.neighbors) - 1; j >= 0; j-- {
+			var i *box
+			if self.tick%2 == 0 {
+				i = me.neighbors[j]
+			} else {
+				i = me.neighbors[j]
+			}
 			if me.x == 6 && me.y < self.h-2 && me.y > 2 && !monsterPath[me.y][me.x] {
 				if !monsterPath[0][6] {
 					self.path = me
@@ -521,6 +528,9 @@ func (self *base) bfsRun() {
 			continue
 		}
 		if now.name == "d" {
+			if now.radius == 1 {
+				continue
+			}
 			if self.mob.me.dagger == nil {
 				self.mob.me.dagger = now
 			}
