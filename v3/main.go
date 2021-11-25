@@ -147,7 +147,7 @@ func (self *base) createMonsterBool() {
 }
 
 func (self *base) OptimalRoad() {
-	if gold == 1 && enamyGold < myGold {
+	if gold == 1 && enamyGold < myGold-2 {
 		fmt.Fprintf(os.Stderr, "more gold than the enemy \n")
 		self.path = self.mob.me.dagger
 		if self.path == nil {
