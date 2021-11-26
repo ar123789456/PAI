@@ -60,11 +60,11 @@ func main() {
 				baseInfo.maps[v.y][v.x].touch = true
 			}
 		}
-
-		if mobs.enamy.param2 == 2 && mobs.me.param2 != 3 {
-			baseInfo.enamyAura()
+		if mobs.enamy != nil {
+			if mobs.enamy.param2 == 2 && mobs.me.param2 != 3 {
+				baseInfo.enamyAura()
+			}
 		}
-
 		baseInfo.bfs()
 		baseInfo.OptimalRoad()
 
@@ -169,12 +169,15 @@ func (self *base) OptimalRoad() {
 		self.path = self.mob.me.bonus
 		return
 	}
-	if self.mob.enamy.param2 == 2 {
-		if self.mob.me.imun != nil {
-			self.path = self.mob.me.imun
-			return
+	if self.mob.enamy != nil {
+		if self.mob.enamy.param2 == 2 {
+			if self.mob.me.imun != nil {
+				self.path = self.mob.me.imun
+				return
+			}
 		}
 	}
+
 	if self.mob.me.frost != nil {
 		self.path = self.mob.me.frost
 		return
