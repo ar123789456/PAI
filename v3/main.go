@@ -8,6 +8,8 @@ import (
 
 const monsterRadius = 3
 
+var goldradius = 2
+
 var monsterRadiusDagger = 1
 
 var dagger int
@@ -57,7 +59,7 @@ func main() {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
 			}
 			if mobs.me.param2 == 2 {
-				baseInfo.maps[v.y][v.x].touch = true
+				baseInfo = mobsAura(baseInfo, *v, monsterRadius-1)
 			}
 		}
 		if mobs.enamy != nil {
@@ -65,6 +67,9 @@ func main() {
 				baseInfo.enamyAura()
 			}
 		}
+
+		baseInfo.findgold()
+
 		baseInfo.bfs()
 		baseInfo.OptimalRoad()
 
@@ -143,6 +148,36 @@ type base struct {
 	path                 *box
 }
 
+func (self *base) findgold() {
+	for y, i := range self.maps {
+		for x, j := range i {
+			if j.name == "#" {
+				self.goldaura(x, y)
+			}
+		}
+	}
+}
+
+func (self *base) goldaura(x, y int) {
+	var open []*box
+	var close []*box
+	self.maps[y][x].goldaura = 0
+	open = append(open, self.maps[y][x])
+	for len(open) != 0 {
+		now := open[0]
+		open = open[1:]
+		close = append(close, now)
+		for _, i := range now.neighbors {
+			if findV(close, i) {
+				continue
+			}
+			i.price--
+			i.goldaura = now.goldaura
+			open = append(open, i)
+		}
+	}
+}
+
 func (self *base) createMonsterBool() {
 	for i := 0; i < self.h; i++ {
 		list := []int{}
@@ -154,43 +189,82 @@ func (self *base) createMonsterBool() {
 }
 
 func (self *base) OptimalRoad() {
-	if gold == 1 && enamyGold < myGold-2 {
-		fmt.Fprintf(os.Stderr, "more gold than the enemy \n")
-		self.path = self.mob.me.dagger
-		if self.path == nil {
-			self.path = self.mob.me.frost
-		}
-		if self.path == nil {
-			self.path = self.mob.me.bonus
-		}
-		return
-	}
-	if self.mob.me.bonus != nil && self.mob.me.bonus.findDis < bonus {
-		self.path = self.mob.me.bonus
-		return
-	}
-	if self.mob.enamy != nil {
-		if self.mob.enamy.param2 == 2 {
-			if self.mob.me.imun != nil {
-				self.path = self.mob.me.imun
-				return
-			}
-		}
-	}
+	// if gold == 1 && enamyGold < myGold-2 {
+	// 	fmt.Fprintf(os.Stderr, "more gold than the enemy \n")
+	// 	self.path = self.mob.me.dagger
+	// 	if self.path == nil {
+	// 		self.path = self.mob.me.frost
+	// 	}
+	// 	if self.path == nil {
+	// 		self.path = self.mob.me.bonus
+	// 	}
+	// 	return
+	// }
+	// if self.mob.me.bonus != nil && self.mob.me.bonus.findDis < bonus {
+	// 	self.path = self.mob.me.bonus
+	// 	return
+	// }
+	// if self.mob.enamy != nil {
+	// 	if self.mob.enamy.param2 == 2 {
+	// 		if self.mob.me.imun != nil {
+	// 			self.path = self.mob.me.imun
+	// 			return
+	// 		}
+	// 	}
+	// }
 
-	if self.mob.me.frost != nil {
-		self.path = self.mob.me.frost
-		return
+	// if self.mob.me.frost != nil {
+	// 	self.path = self.mob.me.frost
+	// 	return
+	// }
+	// if self.mob.me.dagger != nil && self.mob.me.dagger.findDis < dagger {
+	// 	if self.mob.me.gold != nil && self.mob.me.dagger.findDis <= self.mob.me.gold.findDis+2 {
+	// 		if len(self.mob.monster) != 0 {
+	// 			self.path = self.mob.me.dagger
+	// 			return
+	// 		}
+	// 	}
+	// }
+	// self.path = self.mob.me.gold
+	var listPath []*box
+	if self.mob.me.bonus != nil {
+		self.mob.me.bonus.price = self.mob.me.bonus.findDis - self.mob.me.bonus.findDisenamy
+		listPath = append(listPath, self.mob.me.bonus)
 	}
-	if self.mob.me.dagger != nil && self.mob.me.dagger.findDis < dagger {
-		if self.mob.me.gold != nil && self.mob.me.dagger.findDis <= self.mob.me.gold.findDis+2 {
-			if len(self.mob.monster) != 0 {
-				self.path = self.mob.me.dagger
-				return
+	if self.mob.me.dagger != nil {
+		self.mob.me.dagger.price = self.mob.me.dagger.findDis - self.mob.me.dagger.findDisenamy
+		listPath = append(listPath, self.mob.me.dagger)
+	}
+	if self.mob.me.imun != nil {
+		self.mob.me.imun.price = self.mob.me.imun.findDis - self.mob.me.imun.findDisenamy
+		listPath = append(listPath, self.mob.me.imun)
+	}
+	if self.mob.me.frost != nil {
+		self.mob.me.frost.price = self.mob.me.frost.findDis - self.mob.me.frost.findDisenamy
+		listPath = append(listPath, self.mob.me.frost)
+	}
+	if self.mob.me.gold != nil {
+		self.mob.me.gold.price = self.mob.me.gold.findDis - self.mob.me.gold.findDisenamy
+		listPath = append(listPath, self.mob.me.gold)
+	}
+	listPath = sortPAth(listPath)
+	if len(listPath) != 0 {
+		self.path = listPath[0]
+	}
+}
+
+func sortPAth(list []*box) []*box {
+	swapped := true
+	for swapped {
+		swapped = false
+		for i := 1; i < len(list); i++ {
+			if list[i-1].price > list[i].price {
+				list[i], list[i-1] = list[i-1], list[i]
+				swapped = true
 			}
 		}
 	}
-	self.path = self.mob.me.gold
+	return list
 }
 
 func (self *base) OptimalRoad2() {
@@ -240,7 +314,7 @@ func (self *base) PrintResult() {
 			if self.tick%2 == 0 {
 				i = me.neighbors[j]
 			} else {
-				i = me.neighbors[j]
+				i = me.neighbors[len(me.neighbors)-1-j]
 			}
 			if me.x == 6 && me.y < self.h-2 && me.y > 2 && monsterPath[me.y][me.x] == 0 {
 				if monsterPath[0][6] == 0 {
@@ -401,7 +475,7 @@ func (self *base) enamyAura() {
 		if findV(closed, now) {
 			continue
 		}
-		if now.radius == 3 {
+		if now.radius == 4 {
 			continue
 		}
 		for _, v := range now.neighbors {
@@ -469,6 +543,7 @@ type box struct {
 	parent       *box
 	neighbors    []*box
 	monsaura     bool
+	goldaura     int
 	radius       int
 	runtouch     bool
 	touch        bool
@@ -479,6 +554,7 @@ type box struct {
 	findDis      int
 	findDisenamy int
 	price        int
+	priceGold    int
 }
 
 func (self *base) bfs() {
