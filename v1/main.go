@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+var playernow *user
+
 func main() {
 	var Maps mapsType
 	paramBool := true
@@ -21,15 +23,17 @@ func main() {
 
 		// read entities
 		player := user{}
+		enamy := user{}
 		mobs := []user{}
 		for i := 0; i < n; i++ {
 			var entType string
 			var pID, x, y, param1, param2 int
 			fmt.Scan(&entType, &pID, &x, &y, &param1, &param2)
 			if Maps.playerID == pID {
-				paramBool = param1 == 0
+				paramBool = param1 == 0 || param2 == 2
 
 				player.addParam(entType, pID, x, y, param1, param2)
+				continue
 			}
 			if entType == "m" {
 				Maps.maps[y][x].name = 'm'
@@ -38,10 +42,12 @@ func main() {
 				g := user{}
 				g.addParam(entType, pID, x, y, param1, param2)
 				mobs = append(mobs, g)
+				continue
 			}
-
+			enamy.addParam(entType, pID, x, y, param1, param2)
 			fmt.Fprintf(os.Stderr, fmt.Sprintf("entType = %v pID %v x %v y %v param1 %v param2 %v \n", entType, pID, x, y, param1, param2))
 		}
+		playernow = &player
 
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("player.x = %v, player.y = %v \n", player.x, player.y))
 
@@ -53,6 +59,15 @@ func main() {
 				Maps.maps2 = monsterAgreZone(Maps.maps2, m.x, m.y, 2)
 
 			}
+		}
+		if enamy.param2 == 2 {
+			Maps.maps = monsterAgreZone(Maps.maps, enamy.x, enamy.y, 3)
+		}
+		for _, j := range Maps.maps {
+			for _, i := range j {
+				fmt.Fprintf(os.Stderr, fmt.Sprintf("%v ", i.coin))
+			}
+			fmt.Fprintf(os.Stderr, "\n")
 		}
 
 		//find path
@@ -73,18 +88,44 @@ func main() {
 			path = multiPath2.optimal(&player, len(mobs))
 
 			if path == nil {
-				fmt.Println("stay")
-				fmt.Fprintf(os.Stderr, "stay\n")
-				continue
+				if player.x == 6 {
+					path = Maps.maps[player.y][player.x]
+
+				} else {
+					for _, i := range Maps.maps[player.y][player.x].neighbors {
+						m := false
+						for _, j := range i.neighbors {
+							if j.name == 'm' {
+								m = true
+							}
+						}
+						if m {
+							continue
+						}
+						if path == nil {
+							i.parent = Maps.maps[player.y][player.x]
+							path = i
+							continue
+						}
+						if path.coin < i.coin {
+							i.parent = Maps.maps[player.y][player.x]
+
+							path = i
+						}
+					}
+				}
 
 			}
 		}
 		var finalx, finaly int
-		for path.parent != nil {
-			finalx = player.y - path.x
-			finaly = player.x - path.y
-			path = path.parent
+		if path != nil {
+			for path.parent != nil {
+				finalx = player.y - path.x
+				finaly = player.x - path.y
+				path = path.parent
+			}
 		}
+
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("finalx = %v, finaly = %v \n", finalx, finaly))
 		// this will choose one of random actions
 		PrintResult(finalx, finaly)
@@ -138,14 +179,39 @@ func bfs(maps [][]*coord, x, y int, ch chan road) {
 			// fmt.Fprintf(os.Stderr, "q\n")
 			r.quit = now
 		}
+		pass := 0
 		for _, i := range now.neighbors {
 			if i.touch {
+				pass++
+				continue
+			}
+			if i.name == 'f' {
+				if playernow != nil {
+					if playernow.param2 == 3 {
+						continue
+					}
+				}
+			}
+			if i.name == 'i' {
+				if playernow != nil {
+					if playernow.param2 == 2 {
+						continue
+					}
+				}
+			}
+
+			if maps[y][x].mons && len(i.neighbors) == 1 {
+				pass++
 				continue
 			}
 
 			i.parent = now
+			i.allcoin += i.coin + now.allcoin
 			i.depth = now.depth + 1
 			open = append(open, i)
+		}
+		if pass == len(now.neighbors) {
+			r.base = append(r.base, now)
 		}
 		now.touch = true
 	}
@@ -153,6 +219,7 @@ func bfs(maps [][]*coord, x, y int, ch chan road) {
 }
 
 type road struct {
+	base    []*coord
 	player  *coord
 	gold    *coord
 	bonus   *coord
@@ -224,6 +291,28 @@ func (self *road) optimal(player *user, mon int) *coord {
 
 }
 
+func (self *road) optimalSort(player *user, mon int) *coord {
+	self.base = sortPAth(self.base)
+	if len(self.base) != 0 {
+		return self.base[len(self.base)-1]
+	}
+	return nil
+}
+
+func sortPAth(list []*coord) []*coord {
+	swapped := true
+	for swapped {
+		swapped = false
+		for i := 1; i < len(list); i++ {
+			if list[i-1].allcoin > list[i].allcoin {
+				list[i], list[i-1] = list[i-1], list[i]
+				swapped = true
+			}
+		}
+	}
+	return list
+}
+
 func initMap(Maps mapsType) mapsType {
 	var w, h, playerID, tick int
 	fmt.Scan(&w, &h, &playerID, &tick)
@@ -251,6 +340,12 @@ func initMap(Maps mapsType) mapsType {
 				cord.make(c, i, j)
 				var cop coord
 				cop = cord
+				if cord.name == '#' {
+					cord.coin++
+				} else if cord.name != '.' {
+					cord.coin += 2
+				}
+				cop = cord
 				line = append(line, &cord)
 				line2 = append(line2, &cop)
 			} else { // modification old map
@@ -269,15 +364,20 @@ func initMap(Maps mapsType) mapsType {
 
 func monsterAgreZone(maps [][]*coord, x, y, aur int) [][]*coord {
 	open := []*coord{}
+	// maps[y][x].touch = true
+	// maps[y][x].mons = true
+	maps[y][x].depth = 0
 	maps[y][x].touch = true
-	maps[y][x].mons = true
 	open = append(open, maps[y][x])
 
 	for len(open) != 0 {
 		now := open[0]
 		open = open[1:]
+		now.mons = true
+		now.coin += -2 * (aur + 1 - now.depth)
+
 		for _, i := range now.neighbors {
-			if i.touch {
+			if i.mons {
 				continue
 			}
 			i.depth = now.depth + 1
@@ -286,12 +386,11 @@ func monsterAgreZone(maps [][]*coord, x, y, aur int) [][]*coord {
 				continue
 			}
 			i.touch = true
-			i.mons = true
 			open = append(open, i)
 			// fmt.Fprintf(os.Stderr, fmt.Sprintf("x = %v, y = %v, name = %v \n", i.x, i.y, string(i.name)))
 
 		}
-		now.depth = 0
+
 	}
 	return maps
 }
@@ -385,6 +484,7 @@ type coord struct {
 	mons      bool
 	depth     int
 	coin      int
+	allcoin   int
 	parent    *coord
 	neighbors []*coord
 }
@@ -400,6 +500,12 @@ func (self *coord) modification(c rune) {
 	self.touch = false
 	self.depth = 0
 	self.parent = nil
+	self.coin = 0
+	if c == '#' {
+		self.coin++
+	} else if c != '.' {
+		self.coin += 2
+	}
 }
 
 type user struct {

@@ -68,7 +68,7 @@ func main() {
 			}
 		}
 
-		baseInfo.findgold()
+		// baseInfo.findgold()
 
 		baseInfo.bfs()
 		baseInfo.OptimalRoad()
@@ -93,14 +93,14 @@ func score(me, enamy *Mob) {
 		return
 	}
 	if pastBaseInfo.maps[me.y][me.x].name == "#" {
-		if me.param2 != 0 {
+		if me.param2 == 1 {
 			myGold += 2
 		} else {
 			myGold++
 		}
 	}
 	if pastBaseInfo.maps[enamy.y][enamy.x].name == "#" {
-		if enamy.param2 != 0 {
+		if enamy.param2 == 1 {
 			enamyGold += 2
 		} else {
 			enamyGold++
