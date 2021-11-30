@@ -21,6 +21,7 @@ var gold int
 var enamyGold int
 
 var daggerTimer int
+var frozenTime int
 
 var pastBaseInfo *base
 var monsterPath [][]int
@@ -29,6 +30,9 @@ func main() {
 	for {
 		if daggerTimer != 0 {
 			daggerTimer--
+		}
+		if frozenTime != 0 {
+			frozenTime--
 		}
 		if dagger != 0 {
 			dagger--
@@ -55,7 +59,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("my= %v, enamy = %v \n", myGold, enamyGold))
 
 		for _, v := range mobs.monster {
-			if mobs.me.param1 == 0 && mobs.me.param2 != 2 {
+			if mobs.me.param1 == 0 && frozenTime < 2 {
 				baseInfo = mobsAura(baseInfo, *v, monsterRadius)
 			}
 			if mobs.me.param2 == 2 {
@@ -66,6 +70,9 @@ func main() {
 			if mobs.enamy.param2 == 2 && mobs.me.param2 != 3 {
 				baseInfo.enamyAura()
 			}
+		}
+		if mobs.me.param2 != 2 {
+			frozenTime = 0
 		}
 
 		// baseInfo.findgold()
@@ -108,6 +115,9 @@ func score(me, enamy *Mob) {
 	}
 	if pastBaseInfo.maps[me.y][me.x].name == "d" {
 		daggerTimer = 14
+	}
+	if pastBaseInfo.maps[me.y][me.x].name == "f" {
+		frozenTime = 14
 	}
 }
 
@@ -229,19 +239,31 @@ func (self *base) OptimalRoad() {
 	var listPath []*box
 	if self.mob.me.bonus != nil {
 		self.mob.me.bonus.price = self.mob.me.bonus.findDis - self.mob.me.bonus.findDisenamy
-		listPath = append(listPath, self.mob.me.bonus)
+		if self.mob.me.param2 == 0 {
+			listPath = append(listPath, self.mob.me.bonus)
+		}
 	}
 	if self.mob.me.dagger != nil {
 		self.mob.me.dagger.price = self.mob.me.dagger.findDis - self.mob.me.dagger.findDisenamy
-		listPath = append(listPath, self.mob.me.dagger)
+		if len(self.mob.monster) != 0 {
+			listPath = append(listPath, self.mob.me.dagger)
+		}
 	}
 	if self.mob.me.imun != nil {
 		self.mob.me.imun.price = self.mob.me.imun.findDis - self.mob.me.imun.findDisenamy
-		listPath = append(listPath, self.mob.me.imun)
+		if self.mob.me.param2 == 0 {
+			if len(self.mob.monster) != 0 {
+				listPath = append(listPath, self.mob.me.imun)
+			}
+		}
 	}
 	if self.mob.me.frost != nil {
 		self.mob.me.frost.price = self.mob.me.frost.findDis - self.mob.me.frost.findDisenamy
-		listPath = append(listPath, self.mob.me.frost)
+		if self.mob.me.param2 == 0 && self.mob.me.frost.price != 0 {
+			if len(self.mob.monster) != 0 {
+				listPath = append(listPath, self.mob.me.frost)
+			}
+		}
 	}
 	if self.mob.me.gold != nil {
 		self.mob.me.gold.price = self.mob.me.gold.findDis - self.mob.me.gold.findDisenamy
@@ -303,9 +325,10 @@ func (self *base) PrintResult() {
 			for self.path.parent.parent != nil {
 				self.path = self.path.parent
 			}
-		} else {
-			self.path = self.maps[self.mob.me.y][self.mob.me.x]
 		}
+		//  else {
+		// 	self.path = self.maps[self.mob.me.y][self.mob.me.x]
+		// }
 	} else {
 		fmt.Fprintf(os.Stderr, "Monster!!! Run\n")
 		me := self.maps[self.mob.me.y][self.mob.me.x]
@@ -316,11 +339,32 @@ func (self *base) PrintResult() {
 			} else {
 				i = me.neighbors[len(me.neighbors)-1-j]
 			}
-			if me.x == 6 && me.y < self.h-2 && me.y > 2 && monsterPath[me.y][me.x] == 0 {
-				if monsterPath[0][6] == 0 {
+			if me.x == 6 && monsterPath[me.y][me.x] == 0 {
+				mo := false
+				for _, r := range monsterPath {
+					if r[6] != 0 {
+						mo = true
+					}
+				}
+				if !mo && self.tick < 50 {
 					self.path = me
 					break
 				}
+				if me.y < self.h-2 && me.y > 2 && monsterPath[me.y][me.x] == 0 {
+					if monsterPath[0][6] == 0 {
+						self.path = me
+						break
+					}
+				}
+			}
+			m := false
+			for _, neig := range i.neighbors {
+				if neig.name == "m" {
+					m = true
+				}
+			}
+			if m {
+				continue
 			}
 			if !me.monsaura && len(me.neighbors) != 1 {
 				self.path = me
@@ -344,27 +388,34 @@ func (self *base) PrintResult() {
 			if self.path.price > i.price {
 				self.path = i
 			}
+
 		}
 	}
+	if self.path == nil {
+		self.path = self.maps[self.mob.me.y][self.mob.me.x]
+	}
+	// if self.path.monsaura {
+	// 	self.path = self.maps[self.mob.me.y][self.mob.me.x]
+	// }
 	x = self.mob.me.x - self.path.x
 	y = self.mob.me.y - self.path.y
 	fmt.Fprintf(os.Stderr, fmt.Sprintf("x := %v, y := %v\n", x, y))
-	if x < 0 {
+	if x == -1 {
 		fmt.Println(actions[1])
 		fmt.Fprintf(os.Stderr, actions[1])
 		return
 	}
-	if x > 0 {
+	if x == 1 {
 		fmt.Println(actions[0])
 		fmt.Fprintf(os.Stderr, actions[0])
 		return
 	}
-	if y < 0 {
+	if y == -1 {
 		fmt.Println(actions[3])
 		fmt.Fprintf(os.Stderr, actions[3])
 		return
 	}
-	if y > 0 {
+	if y == 1 {
 		fmt.Println(actions[2])
 		fmt.Fprintf(os.Stderr, actions[2])
 		return
